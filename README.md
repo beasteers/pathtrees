@@ -6,6 +6,8 @@
 [![License](https://img.shields.io/pypi/l/pathtrees.svg)](https://github.com/beasteers/pathtrees/blob/main/LICENSE.md)
 
 
+Define your path structure at the top, then just fill in the variables later.
+
 ## Install
 
 ```bash
