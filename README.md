@@ -87,4 +87,23 @@ assert path.glob_format(date='111') == 'data/aaa/raw/111/temperature_*.csv'
 assert path.format(date='111', fild_id=2) == 'data/aaa/raw/111/temperature_0002.csv'
 assert path.partial_format(date='111', fild_id=2) == 'data/aaa/raw/111/temperature_0002.csv'
 assert path.glob_format(date='111', fild_id=2) == 'data/aaa/raw/111/temperature_0002.csv'
+
+# passing arguments to format() doesn't update the original object.
+
+# you can either create a copy of the path and update it's data
+path2 = path.specify(date='111')
+# or you can update the data in place using update()
+path2.update(date='222', fild_id=2)
+
+# and now you don't need to pass that info to format()
+
+import os
+
+assert os.fspath(path) == path.format()
+assert str(path) == path.partial_format()
 ```
+
+TODO:
+ - docstrings and examples !!!
+ - decide what I want to do about `format_path`, `partial_format_path`, etc. (too verbose)
+ - publish RTD
