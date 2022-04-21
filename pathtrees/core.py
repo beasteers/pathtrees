@@ -591,7 +591,10 @@ def _fix_parts(func):
 _uses_parsed_parts = ['_make_child', '_make_child_relpath', 'with_name', 'with_suffix', 'relative_to']
 _uses_parts = ['__rtruediv__', 'absolute', 'resolve', 'readlink', 'expanduser']
 for _method in _uses_parsed_parts + _uses_parts:
-    setattr(Path, _method, _fix_parts(getattr(BuiltinPath, _method)))
+    try:
+        setattr(Path, _method, _fix_parts(getattr(BuiltinPath, _method)))
+    except AttributeError:
+        pass
 Path.parent = property(_fix_parts(BuiltinPath.parent.fget))
 
 
