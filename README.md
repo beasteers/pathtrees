@@ -1,7 +1,6 @@
 # pathtrees
 
-[![pypi](https://badge.fury.io/py/pathtrees.svg)](https://pypi.python.org/pypi/pathtrees/)
-<!-- ![tests](https://github.com/beasteers/pathtrees/actions/workflows/ci.yaml/badge.svg) -->
+[![pypi](https://badge.fury.io/py/pathtrees.svg)](https://pypi.python.org/pypi/pathtrees/)<!-- ![tests](https://github.com/beasteers/pathtrees/actions/workflows/ci.yaml/badge.svg) -->
 [![docs](https://readthedocs.org/projects/pathtrees/badge/?version=latest)](http://pathtrees.readthedocs.io/?badge=latest)
 [![License](https://img.shields.io/pypi/l/pathtrees.svg)](https://github.com/beasteers/pathtrees/blob/main/LICENSE.md)
 
