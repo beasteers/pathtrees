@@ -2,20 +2,21 @@ from __future__ import annotations
 import os
 import glob
 import pathlib
-from typing import Dict, Iterable, List, Union, TypeVar
+from typing import Dict, Iterable, List, Union, TypeVar, cast, overload
 # import itertools
 from functools import wraps
 # import inspect
-from parse import parse as parse_
-from pformat import *
+from parse import parse as parse_, Result
+from pformat import pformat, gformat
 from .util import *
 
 Ps = TypeVar('Ps', bound='Paths')
 P = TypeVar('P', bound='Path')
 
-_TREE_DEF_TYPE = Dict[str, Union[str, Dict]]
 
-def tree(root: Union[str, _TREE_DEF_TYPE]=None, paths: Union[str, _TREE_DEF_TYPE]=None, data: Dict=None):
+_TREE_DEF_TYPE = Dict[str, Union[str, '_TREE_DEF_TYPE']]
+
+def tree(root: Union[str, _TREE_DEF_TYPE, None]=None, paths: Union[str, _TREE_DEF_TYPE, None]=None, data: dict|None=None) -> Paths:
     '''Build paths from a directory spec.
 
     Arguments:
@@ -47,6 +48,7 @@ def tree(root: Union[str, _TREE_DEF_TYPE]=None, paths: Union[str, _TREE_DEF_TYPE
         use empty strings to reference the directory. This works because
         ``os.path.join(path, '') == path``
     '''
+    # swap root and paths based on type
     if root is not None and not isinstance(root, (str, os.PathLike)):
         root, paths = paths, root
     paths = paths or {}
@@ -62,7 +64,7 @@ def tree(root: Union[str, _TREE_DEF_TYPE]=None, paths: Union[str, _TREE_DEF_TYPE
         data or {})
 
 
-def _get_keys(data: _TREE_DEF_TYPE, keys: tuple=None, iters_as_keys: bool=False):
+def _get_keys(data: _TREE_DEF_TYPE, keys: tuple|None=None, iters_as_keys: bool=False):
     '''Recursively traverse a nested dict and return the trail of keys, and the final value'''
     keys = tuple(keys or ())
     for key, value in data.items():
@@ -138,7 +140,7 @@ class Paths:
             print(path)
 
     '''
-    def __init__(self, paths: Dict[str, 'Path'], data: dict=None):
+    def __init__(self, paths: Dict[str, 'Path'], data: dict|None=None):
         self.paths = paths
         for path in paths.values():
             path._tree = self
@@ -151,8 +153,8 @@ class Paths:
         ]))
 
     @classmethod
-    def define(cls, paths: _TREE_DEF_TYPE=None, root: P=None, data: dict=None) -> 'Paths':
-        return tree(paths, root, data)
+    def define(cls, root: str|None=None, paths: _TREE_DEF_TYPE|None=None, data: dict|None=None) -> 'Paths':
+        return tree(root, paths, data)
     define.__doc__ = tree.__doc__
 
     def __contains__(self, name: str) -> bool:
@@ -176,10 +178,15 @@ class Paths:
             return self.paths[name]
         raise AttributeError(name)
 
-    def __getitem__(self, name) -> 'Path':
+    @overload
+    def __getitem__(self, name: tuple) -> 'Paths': ...
+    @overload
+    def __getitem__(self, name: str) -> 'Path': ...
+
+    def __getitem__(self, name):
         '''Get a path by name.'''
         if isinstance(name, tuple):
-            return Paths({n: self._paths[n] for n in name}, data=dict(self.data))
+            return Paths({n: self.paths[n] for n in name}, data=dict(self.data))
         return self.paths[name]
 
     def add(self: Ps, root=None, paths=None) -> Ps:
@@ -199,19 +206,19 @@ class Paths:
             path._tree = self
         return self
 
-    def rjoinpath(self: Ps, path) -> Ps:
+    def rjoinpath(self, path) -> Paths:
         """Give these paths a new root! Basically doing root / path for all paths in this tree.
         This is useful if you want to nest a folder inside another.py
         """
         return Paths({name: p.rjoinpath(path) for name, p in self.paths.items()}, dict(self.data))
 
-    def relative_to(self: Ps, path) -> Ps:
+    def relative_to(self, path) -> Paths:
         """Make these paths relative to another path! Basically doing path.relative_to(root) for all paths in this tree.
         Use this with ``with_root`` to change the root directory of the paths.
         """
         return Paths({name: p.relative_to(path) for name, p in self.paths.items()}, dict(self.data))
 
-    def parse(self, path, name) -> dict:
+    def parse(self, path, name: str) -> dict:
         '''Parse data from a formatted string (reverse of string format)
 
         Arguments:
@@ -225,7 +232,7 @@ class Paths:
         return self.paths[to].specify(**self.paths[name].parse(file, **kw))
 
     @property
-    def copy(self: Ps) -> Ps:
+    def copy(self) -> Paths:
         """Create a copy of a path tree and its paths."""
         return Paths({name: path.copy for name, path in self.paths.items()}, dict(self.data))
 
@@ -265,7 +272,7 @@ class Paths:
         '''
         return self.copy.update(**kw)
 
-    def unspecify(self: Ps, *keys, inplace=False, children=True) -> Ps:
+    def unspecify(self, *keys, inplace=False, children=True) -> Paths:
         '''Remove keys from paths dictionary.
         
         .. code-block:: python
@@ -280,13 +287,13 @@ class Paths:
             assert 'a' not in paths.data
 
         '''
-        p = self if inplace else self.copy
+        ps = self if inplace else self.copy
         for key in keys:
-            p.data.pop(key, None)
+            ps.data.pop(key, None)
         if children:
-            for p in self:
+            for p in ps.paths.values():
                 p.unspecify(*keys, parent=False)
-        return p
+        return ps
 
     @property
     def fully_specified(self) -> bool:
@@ -357,7 +364,7 @@ class Path(BuiltinPath):
 
     '''
     __slots__ = ['data', '_tree']  #, '_tree_root'
-    def __new__(cls, *args, data: dict=None, tree: Paths=None):  # , root=None
+    def __new__(cls, *args, data: dict|None=None, tree: Paths|None=None):  # , root=None
         p = super().__new__(cls, *args)
         p.data = {} if data is None else data
         p._tree = tree
@@ -384,7 +391,7 @@ class Path(BuiltinPath):
     def __hash__(self):
         return hash(self._partial_format())
 
-    def __call__(self, **kw) -> BuiltinPath:
+    def __call__(self, **kw) -> str:
         return self.format(**kw)
 
     def __eq__(self, __o) -> bool:
@@ -410,7 +417,7 @@ class Path(BuiltinPath):
         '''Creates a copy of the path object so that data can be altered without affecting
         the original object.'''
         return self._add_extra_parts(
-            self._from_parsed_parts(self._drv, self._root, self._parts), 
+            self._from_parsed_parts(self._drv, self._root, self._parts),   # type: ignore
             copy_data=True)
 
     def update(self: P, **kw) -> P:
@@ -496,7 +503,7 @@ class Path(BuiltinPath):
         '''Format a field, setting all unspecified fields as a wildcard (asterisk).'''
         return self._glob_format_path(**kw)
 
-    def maybe_format(self: p, **kw) -> Union[str, P]:
+    def maybe_format(self: P, **kw) -> Union[str, P]:
         '''Try to format a field. If it fails, return as a Path object.'''
         p = self.specify(**kw) if kw else self
         try:
@@ -550,7 +557,7 @@ class Path(BuiltinPath):
         '''
         path = str(path)
         pattern = self._partial_format() if use_data else super().__str__()
-        r = parse_(pattern, path)
+        r = cast(Result, parse_(pattern, path))
         if r is None:
             raise ValueError('''Could not parse path using pattern.
     path: {}
@@ -595,10 +602,10 @@ for _method in _uses_parsed_parts + _uses_parts:
         setattr(Path, _method, _fix_parts(getattr(BuiltinPath, _method)))
     except AttributeError:
         pass
-Path.parent = property(_fix_parts(BuiltinPath.parent.fget))
+Path.parent = property(_fix_parts(BuiltinPath.parent.fget))  # type: ignore
 
 
-class _PathParents(pathlib._PathParents):
+class _PathParents(pathlib._PathParents):  # type: ignore
     __slots__ = ['data', 'parent']
     def __init__(self, path):
         super().__init__(path)
