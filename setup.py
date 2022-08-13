@@ -20,5 +20,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     # entry_points={'console_scripts': ['{name}={name}:main'.format(name=NAME)]},
     install_requires=['parse', 'pformat'],
+    extras_require={
+        'test': ['pytest', 'pytest-cov'],
+        'doc': ['sphinx']
+    },
     license='MIT License',
     keywords='path directory tree structure partial format')
